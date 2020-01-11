@@ -83,3 +83,37 @@ func TestFsHead2(t *testing.T) {
 	}
 
 }
+
+var buf []byte
+
+func BenchmarkFsHead_Bytes(b *testing.B) {
+	h := &FsHead{
+		Version:    1,
+		ClientName: "demo",
+		UserID:     6789,
+		LogID:      34556,
+		MetaLen:    3238,
+		BodyLen:    198765,
+	}
+	b.ResetTimer()
+	b.ReportAllocs()
+
+	var bf []byte
+	for i := 0; i < b.N; i++ {
+		bf = h.Bytes()
+	}
+	buf = bf
+}
+func BenchmarkFsHead_BytesManyZero(b *testing.B) {
+	h := &FsHead{
+		ClientName: "demo",
+	}
+	b.ResetTimer()
+	b.ReportAllocs()
+
+	var bf []byte
+	for i := 0; i < b.N; i++ {
+		bf = h.Bytes()
+	}
+	buf = bf
+}

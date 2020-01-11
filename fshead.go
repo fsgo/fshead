@@ -10,6 +10,7 @@ import (
 	"bytes"
 	"encoding/binary"
 	"errors"
+	"io"
 )
 
 // MagicNumDefault 默认的magicNum，用于校验协议是否匹配
@@ -18,6 +19,8 @@ const MagicNumDefault uint32 = 0xce1d0d78
 
 // Length 协议头长度，固定长32字节
 const Length = 32
+
+const _ClientNameLength = 8
 
 // FsHead 协议头
 type FsHead struct {
@@ -50,29 +53,67 @@ type FsHead struct {
 	MagicNum uint32
 }
 
+var magicNumDefaultBytes = make([]byte, 4)
+var bytesPadding []byte
+
+func init() {
+	binary.LittleEndian.PutUint32(magicNumDefaultBytes, MagicNumDefault)
+
+	bytesPadding = make([]byte, _ClientNameLength)
+	for i, x := range bytesPadding {
+		bytesPadding[i] = byte(x)
+	}
+}
+
 // Bytes 将协议头对象装换为可以传输的bytes
 func (h *FsHead) Bytes() []byte {
 	buf := bytes.NewBuffer(make([]byte, 0, Length))
-	binary.Write(buf, binary.LittleEndian, h.Version) // 0-2
 
-	if len(h.ClientName) >= 8 {
-		binary.Write(buf, binary.LittleEndian, []byte(h.ClientName[0:8])) // 2-10
+	writeBinaryUint16(buf, h.Version) // 0-2
+
+	if len(h.ClientName) >= _ClientNameLength {
+		binary.Write(buf, binary.LittleEndian, []byte(h.ClientName[0:_ClientNameLength])) // 2-10
 	} else {
 		binary.Write(buf, binary.LittleEndian, []byte(h.ClientName))
-		cnamePad := make([]byte, 8-len(h.ClientName))
-		binary.Write(buf, binary.LittleEndian, cnamePad)
+		buf.Write(bytesPadding[:_ClientNameLength-len(h.ClientName)])
 	}
-	binary.Write(buf, binary.LittleEndian, h.UserID)  // 10-14
-	binary.Write(buf, binary.LittleEndian, h.LogID)   // 14-18
-	binary.Write(buf, binary.LittleEndian, h.Reserve) // 18-22
-	binary.Write(buf, binary.LittleEndian, h.MetaLen) // 22-24
-	binary.Write(buf, binary.LittleEndian, h.BodyLen) // 24-28
+
+	writeBinaryUint32(buf, h.UserID)  // 10-14
+	writeBinaryUint32(buf, h.LogID)   // 14-18
+	writeBinaryUint32(buf, h.Reserve) // 18-22
+	writeBinaryUint16(buf, h.MetaLen) // 22-24
+	writeBinaryUint32(buf, h.BodyLen) // 24-28
+
 	if h.MagicNum == 0 {
-		binary.Write(buf, binary.LittleEndian, MagicNumDefault) // 28-32
+		buf.Write(magicNumDefaultBytes) // 28-32
 	} else {
 		binary.Write(buf, binary.LittleEndian, h.MagicNum)
 	}
 	return buf.Bytes()
+}
+
+var zeroUint16LEBytes = make([]byte, 2)
+var zeroUint32LEBytes = make([]byte, 4)
+
+func init() {
+	binary.LittleEndian.PutUint16(zeroUint16LEBytes, 0)
+	binary.LittleEndian.PutUint32(zeroUint32LEBytes, 0)
+}
+
+func writeBinaryUint16(w io.Writer, num uint16) {
+	if num == 0 {
+		w.Write(zeroUint16LEBytes)
+		return
+	}
+	binary.Write(w, binary.LittleEndian, num)
+}
+
+func writeBinaryUint32(w io.Writer, num uint32) {
+	if num == 0 {
+		w.Write(zeroUint32LEBytes)
+		return
+	}
+	binary.Write(w, binary.LittleEndian, num)
 }
 
 // ErrMagicNumNotMatch 协议不匹配
