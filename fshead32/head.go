@@ -1,10 +1,10 @@
 /*
  * Copyright(C) 2020 github.com/hidu  All Rights Reserved.
  * Author: hidu (duv123+git@baidu.com)
- * Date: 2020/1/10
+ * Date: 2020/1/14
  */
 
-package fshead
+package fshead32
 
 import (
 	"bytes"
@@ -22,8 +22,8 @@ const Length = 32
 
 const _ClientNameLength = 8
 
-// FsHead 协议头
-type FsHead struct {
+// Head 协议头
+type Head struct {
 
 	// 协议版本
 	Version uint16
@@ -42,7 +42,7 @@ type FsHead struct {
 	Reserve uint32
 
 	// 后面的元数据长度
-	// 消息完整格式为：{FsHead:固定长度}{Meta}{Body}
+	// 消息完整格式为：{Head:固定长度}{Meta}{Body}
 	MetaLen uint16
 
 	// 消息体的长度
@@ -66,7 +66,7 @@ func init() {
 }
 
 // Bytes 将协议头对象装换为可以传输的bytes
-func (h *FsHead) Bytes() []byte {
+func (h *Head) Bytes() []byte {
 	buf := bytes.NewBuffer(make([]byte, 0, Length))
 
 	writeBinaryUint16(buf, h.Version) // 0-2
@@ -124,7 +124,7 @@ var ErrHeaderLengthWrong = errors.New("header bytes length wrong, expect is 32")
 
 // ParserBytes 解析header头
 // 并使用 指定magicNum 来校验协议是否匹配(若该值为0，则使用默认值校验)
-func ParserBytes(buf []byte, magicNumWant uint32) (*FsHead, error) {
+func ParserBytes(buf []byte, magicNumWant uint32) (*Head, error) {
 	if len(buf) != Length {
 		return nil, ErrHeaderLengthWrong
 	}
@@ -133,7 +133,7 @@ func ParserBytes(buf []byte, magicNumWant uint32) (*FsHead, error) {
 	if !CheckMagicNum(magicNumGot, magicNumWant) {
 		return nil, ErrMagicNumNotMatch
 	}
-	header := &FsHead{
+	header := &Head{
 		Version:    binary.LittleEndian.Uint16(buf[0:2]),
 		ClientName: string(bytes.TrimRight(buf[2:10], "\x00")),
 		UserID:     binary.LittleEndian.Uint32(buf[10:14]),

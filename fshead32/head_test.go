@@ -1,10 +1,10 @@
 /*
  * Copyright(C) 2020 github.com/hidu  All Rights Reserved.
  * Author: hidu (duv123+git@baidu.com)
- * Date: 2020/1/10
+ * Date: 2020/1/14
  */
 
-package fshead
+package fshead32
 
 import (
 	"bytes"
@@ -13,7 +13,7 @@ import (
 )
 
 func TestFsHead(t *testing.T) {
-	h := &FsHead{
+	h := &Head{
 		Version:    1,
 		ClientName: "demodemodemo",
 		MagicNum:   1234,
@@ -51,7 +51,7 @@ func TestFsHead(t *testing.T) {
 }
 
 func TestFsHead2(t *testing.T) {
-	h := &FsHead{
+	h := &Head{
 		Version:    1,
 		ClientName: "demo",
 		UserID:     6789,
@@ -87,7 +87,7 @@ func TestFsHead2(t *testing.T) {
 var buf []byte
 
 func BenchmarkFsHead_Bytes(b *testing.B) {
-	h := &FsHead{
+	h := &Head{
 		Version:    1,
 		ClientName: "demo",
 		UserID:     6789,
@@ -105,7 +105,7 @@ func BenchmarkFsHead_Bytes(b *testing.B) {
 	buf = bf
 }
 func BenchmarkFsHead_BytesManyZero(b *testing.B) {
-	h := &FsHead{
+	h := &Head{
 		ClientName: "demo",
 	}
 	b.ResetTimer()
