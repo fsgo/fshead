@@ -4,7 +4,7 @@
  * Date: 2020/1/14
  */
 
-package fshead32
+package fshead16
 
 import (
 	"bytes"
@@ -17,40 +17,27 @@ import (
 // uint32 = 3458010488
 const MagicNumDefault uint32 = 0xce1d0d78
 
-// Length 协议头长度，固定长32字节
-const Length = 32
+// Length 协议头长度，固定长16字节
+const Length = 16
 
-const _ClientNameLength = 8
+const _ClientNameLength = 6
 
 // Head 协议头
 type Head struct {
+	// 魔法变量 用于校验协议是否匹配
+	// 若为0，则使用默认值
+	MagicNum uint32 // 0-4
 
-	// 协议版本
-	Version uint16
-
-	// 调用方名称,前8个字节
-	ClientName string
-
-	// 调用方ID，若不需要，可以传0
-	// server端也可以依次做身份校验
-	UserID uint32
-
-	// 日志ID
-	LogID uint32
-
-	// 预留字段，业务可以扩展使用
-	Reserve uint32
+	// 调用方名称,前6个字节
+	ClientName string // 4-10
 
 	// 后面的元数据长度
 	// 消息完整格式为：{Head:固定长度}{Meta}{Body}
-	MetaLen uint16
+	MetaLen uint16 // 10-12
 
 	// 消息体的长度
-	BodyLen uint32
+	BodyLen uint32 // 12-16
 
-	// 魔法变量 用于校验协议是否匹配
-	// 若为0，则使用默认值
-	MagicNum uint32
 }
 
 var magicNumDefaultBytes = make([]byte, 4)
@@ -69,26 +56,22 @@ func init() {
 func (h *Head) Bytes() []byte {
 	buf := bytes.NewBuffer(make([]byte, 0, Length))
 
-	writeBinaryUint16(buf, h.Version) // 0-2
+	if h.MagicNum == 0 {
+		buf.Write(magicNumDefaultBytes) // 0-4
+	} else {
+		binary.Write(buf, binary.LittleEndian, h.MagicNum)
+	}
 
+	//  4-10
 	if len(h.ClientName) >= _ClientNameLength {
-		binary.Write(buf, binary.LittleEndian, []byte(h.ClientName[0:_ClientNameLength])) // 2-10
+		binary.Write(buf, binary.LittleEndian, []byte(h.ClientName[0:_ClientNameLength]))
 	} else {
 		binary.Write(buf, binary.LittleEndian, []byte(h.ClientName))
 		buf.Write(bytesPadding[:_ClientNameLength-len(h.ClientName)])
 	}
 
-	writeBinaryUint32(buf, h.UserID)  // 10-14
-	writeBinaryUint32(buf, h.LogID)   // 14-18
-	writeBinaryUint32(buf, h.Reserve) // 18-22
-	writeBinaryUint16(buf, h.MetaLen) // 22-24
-	writeBinaryUint32(buf, h.BodyLen) // 24-28
-
-	if h.MagicNum == 0 {
-		buf.Write(magicNumDefaultBytes) // 28-32
-	} else {
-		binary.Write(buf, binary.LittleEndian, h.MagicNum)
-	}
+	writeBinaryUint16(buf, h.MetaLen) // 10-12
+	writeBinaryUint32(buf, h.BodyLen) // 12-16
 	return buf.Bytes()
 }
 
@@ -129,19 +112,15 @@ func ParserBytes(buf []byte, magicNumWant uint32) (*Head, error) {
 		return nil, ErrHeaderLengthWrong
 	}
 
-	magicNumGot := binary.LittleEndian.Uint32(buf[28:32])
+	magicNumGot := binary.LittleEndian.Uint32(buf[0:4])
 	if !CheckMagicNum(magicNumGot, magicNumWant) {
 		return nil, ErrMagicNumNotMatch
 	}
 	header := &Head{
-		Version:    binary.LittleEndian.Uint16(buf[0:2]),
-		ClientName: string(bytes.TrimRight(buf[2:10], "\x00")),
-		UserID:     binary.LittleEndian.Uint32(buf[10:14]),
-		LogID:      binary.LittleEndian.Uint32(buf[14:18]),
-		Reserve:    binary.LittleEndian.Uint32(buf[18:22]),
-		MetaLen:    binary.LittleEndian.Uint16(buf[22:24]),
-		BodyLen:    binary.LittleEndian.Uint32(buf[24:28]),
 		MagicNum:   magicNumGot,
+		ClientName: string(bytes.TrimRight(buf[4:10], "\x00")),
+		MetaLen:    binary.LittleEndian.Uint16(buf[10:12]),
+		BodyLen:    binary.LittleEndian.Uint32(buf[12:16]),
 	}
 	return header, nil
 }
